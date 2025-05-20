@@ -6,6 +6,7 @@ const exportPDF = document.getElementById('exportPDF');
 const exportSVG = document.getElementById('exportSVG');
 const colorTemplate = document.getElementById('colorTemplate');
 const colorSwatch = document.getElementById('colorSwatch');
+const customColor = document.getElementById('customColor');
 
 // Set canvas size based on container
 function resizeCanvas() {
@@ -233,6 +234,14 @@ colorSwatch.addEventListener('click', (e) => {
     }
 });
 
+// Custom color selection
+customColor.addEventListener('change', () => {
+    selectedColor = customColor.value;
+    templateColor = 'default'; // Reset template to default when custom color is selected
+    colorTemplate.value = 'default'; // Update dropdown to reflect default
+    drawSpread();
+});
+
 // Draw yearbook spread
 function drawSpread() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -417,7 +426,7 @@ canvas.addEventListener('mousemove', (e) => {
             ctx.beginPath();
             ctx.moveTo(currentRect.x + currentRect.width / 2, currentRect.y + currentRect.height / 4);
             ctx.lineTo(currentRect.x + currentRect.width / 3, currentRect.y + currentRect.height / 3);
-            ctx.lineTo(currentRect.x + currentRect.width * 2 / 3, currentRect.y + currentRect.height / 3);
+            ctx.lineTo(currentRect.x + rect.width * 2 / 3, currentRect.y + rect.height / 3);
             ctx.closePath();
             ctx.fillStyle = '#000';
             ctx.fill();

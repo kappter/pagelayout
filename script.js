@@ -5,6 +5,7 @@ const layerTools = document.getElementById('layerTools');
 const exportPDF = document.getElementById('exportPDF');
 const exportSVG = document.getElementById('exportSVG');
 const colorTemplate = document.getElementById('colorTemplate');
+const colorSwatch = document.getElementById('colorSwatch');
 
 // Set canvas size based on container
 function resizeCanvas() {
@@ -26,7 +27,7 @@ const layers = {
     textBoxes: []
 };
 let currentLayer = 'modules';
-let selectedColor = '#FF0000';
+let selectedColor = '#FF4040'; // Default to first swatch color
 let selectedFontSize = '16px';
 let selectedFontFamily = 'Arial';
 let isDragging = false;
@@ -49,7 +50,7 @@ const layerToolConfigs = {
         <h3>Module Tools</h3>
         <p>Click to create bullseye quadrants or drag to draw rectangles.</p>
         <div id="colorPalette">
-            <input type="color" id="color1" value="#FF0000">
+            <input type="color" id="color1" value="#FF4040">
             <input type="color" id="color2" value="#00FF00">
             <input type="color" id="color3" value="#0000FF">
             <input type="color" id="color4" value="#FFFF00">
@@ -60,7 +61,7 @@ const layerToolConfigs = {
     moduleGroups: `
         <h3>Module Group Tools</h3>
         <div id="colorPalette">
-            <input type="color" id="color1" value="#FF0000">
+            <input type="color" id="color1" value="#FF4040">
             <input type="color" id="color2" value="#00FF00">
             <input type="color" id="color3" value="#0000FF">
             <input type="color" id="color4" value="#FFFF00">
@@ -194,8 +195,21 @@ layerSelect.addEventListener('change', () => {
 // Template selection
 colorTemplate.addEventListener('change', () => {
     templateColor = colorTemplate.value;
-    selectedColor = templateColors[templateColor] || '#FF0000';
+    if (templateColor !== 'default') {
+        selectedColor = templateColors[templateColor];
+    }
     drawSpread();
+});
+
+// Color swatch selection
+colorSwatch.addEventListener('click', (e) => {
+    const swatch = e.target.closest('.swatch');
+    if (swatch) {
+        selectedColor = swatch.getAttribute('data-color');
+        templateColor = 'default'; // Reset template to default when swatch is selected
+        colorTemplate.value = 'default'; // Update dropdown to reflect default
+        drawSpread();
+    }
 });
 
 // Draw yearbook spread
@@ -312,7 +326,7 @@ canvas.addEventListener('mousedown', (e) => {
             y: startY,
             width: 0,
             height: 0,
-            fill: templateColors[templateColor] || selectedColor,
+            fill: selectedColor,
             stroke: '#000',
             fontSize: selectedFontSize,
             fontFamily: selectedFontFamily
@@ -379,7 +393,7 @@ canvas.addEventListener('mouseup', (e) => {
                 y: startY,
                 width: endX - startX,
                 height: endY - startY,
-                fill: templateColors[templateColor] || selectedColor,
+                fill: selectedColor,
                 stroke: '#000'
             };
             if (currentRect.width !== 0 && currentRect.height !== 0) {

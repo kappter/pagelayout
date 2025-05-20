@@ -44,6 +44,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Page Layout Tool</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -59,6 +60,8 @@
             <div id="layerTools">
                 <!-- Dynamic tools will be injected here -->
             </div>
+            <button id="exportPDF">Export as PDF</button>
+            <button id="exportSVG">Export as SVG</button>
         </div>
         <div class="workspace">
             <canvas id="layoutCanvas"></canvas>

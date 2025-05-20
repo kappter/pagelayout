@@ -57,6 +57,9 @@ const layerToolConfigs = {
             <input type="color" id="color5" value="#FF00FF">
         </div>
         <button id="randomizeColors">Randomize Colors</button>
+        <label for="moduleCount">Modules (2-10):</label>
+        <input type="number" id="moduleCount" min="2" max="10" value="2">
+        <button id="makeModules">Make Modules</button>
     `,
     moduleGroups: `
         <h3>Module Group Tools</h3>
@@ -183,6 +186,24 @@ function updateToolbar() {
             });
         }
     }
+    
+    // Reattach event listeners for make modules
+    if (currentLayer === 'modules') {
+        const makeModules = document.getElementById('makeModules');
+        const moduleCount = document.getElementById('moduleCount');
+        if (makeModules && moduleCount) {
+            makeModules.addEventListener('click', () => {
+                const count = parseInt(moduleCount.value);
+                if (count >= 2 && count <= 10) {
+                    canvas.dispatchEvent(new Event('mousedown'));
+                    createEqualModules(count);
+                    canvas.dispatchEvent(new Event('mouseup'));
+                } else {
+                    alert('Please enter a number between 2 and 10.');
+                }
+            });
+        }
+    }
 }
 
 // Layer selection
@@ -243,7 +264,7 @@ function drawSpread() {
                 }
                 if (rect.bodyText) {
                     ctx.font = `${rect.fontSize || selectedFontSize} ${rect.fontFamily || selectedFontFamily}`;
-                    wrapText(ctx, rect.bodyText, rect.x, rect.y + (rect.headline ? parseInt(rect.fontSize || selectedFontSize) * 2 : parseInt(rect.fontSize || selectedFontSize)), rect.width, parseInt(rect.fontSize || selectedFontSize) * 1.5);
+                    wrapText(ctx, rect.bodyText, rect.x, rect.y + (rect.headline ? parseInt(rect.fontSize || selectedFontSize) * 2 : parseInt(selectedFontSize)), rect.width, parseInt(rect.fontSize || selectedFontSize) * 1.5);
                 }
                 ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
             } else if (rect.image && (layer === 'photoBoxes' || layer === 'imageBoxes')) {
@@ -312,6 +333,33 @@ function createBullseyeQuadrants(x, y) {
             layers.modules.push(quad);
         }
     });
+}
+
+// Create equal vertical modules
+function createEqualModules(count) {
+    const pageWidth = (canvas.width - 20) / 2;
+    const pageHeight = canvas.height;
+    const margin = pageWidth * (1 / 8.5);
+    const gutter = 20;
+    const usableWidth = pageWidth - 2 * margin;
+
+    const isLeftPage = startX < pageWidth;
+    const pageX = isLeftPage ? 0 : pageWidth + gutter;
+
+    const moduleWidth = usableWidth / count;
+    layers.modules = layers.modules.filter(rect => !rect.isEqualModule); // Clear previous equal modules
+    for (let i = 0; i < count; i++) {
+        const module = {
+            x: pageX + margin + (i * moduleWidth),
+            y: margin,
+            width: moduleWidth,
+            height: pageHeight - 2 * margin,
+            fill: selectedColor,
+            stroke: '#000',
+            isEqualModule: true
+        };
+        layers.modules.push(module);
+    }
 }
 
 // Mouse events for dragging rectangles or creating bullseye

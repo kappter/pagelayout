@@ -4,6 +4,7 @@ const layerSelect = document.getElementById('layerSelect');
 const layerTools = document.getElementById('layerTools');
 const exportPDF = document.getElementById('exportPDF');
 const exportSVG = document.getElementById('exportSVG');
+const colorTemplate = document.getElementById('colorTemplate');
 
 // Set canvas size based on container
 function resizeCanvas() {
@@ -31,6 +32,16 @@ let selectedFontFamily = 'Arial';
 let isDragging = false;
 let startX, startY;
 let currentRect = null;
+let templateColor = 'default';
+
+// Template colors
+const templateColors = {
+    default: '#FF0000',
+    blueTheme: '#00C4FF',
+    redTheme: '#FF4040',
+    greenTheme: '#40FF80',
+    yellowTheme: '#FFFF40'
+};
 
 // Layer-specific toolbar content
 const layerToolConfigs = {
@@ -180,6 +191,13 @@ layerSelect.addEventListener('change', () => {
     drawSpread();
 });
 
+// Template selection
+colorTemplate.addEventListener('change', () => {
+    templateColor = colorTemplate.value;
+    selectedColor = templateColors[templateColor] || '#FF0000';
+    drawSpread();
+});
+
 // Draw yearbook spread
 function drawSpread() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -223,7 +241,6 @@ function drawSpread() {
                 ctx.strokeStyle = rect.stroke || '#000';
                 ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
                 ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-                // Draw image placeholder icon
                 if (layer === 'photoBoxes' || layer === 'imageBoxes') {
                     ctx.fillStyle = '#fff';
                     ctx.fillRect(rect.x + rect.width / 4, rect.y + rect.height / 4, rect.width / 2, rect.height / 2);
@@ -295,7 +312,7 @@ canvas.addEventListener('mousedown', (e) => {
             y: startY,
             width: 0,
             height: 0,
-            fill: selectedColor,
+            fill: templateColors[templateColor] || selectedColor,
             stroke: '#000',
             fontSize: selectedFontSize,
             fontFamily: selectedFontFamily
@@ -313,7 +330,7 @@ canvas.addEventListener('mousemove', (e) => {
     drawSpread();
     if (currentLayer === 'textBoxes') {
         ctx.font = `${selectedFontSize} ${selectedFontFamily}`;
-        ctx.fillStyle = selectedColor;
+        ctx.fillStyle = currentRect.fill;
         if (currentRect.headline) {
             ctx.font = `bold ${Math.min(parseInt(selectedFontSize) * 1.5, 36)}px ${selectedFontFamily}`;
             ctx.fillText(currentRect.headline.toUpperCase(), currentRect.x, currentRect.y + parseInt(selectedFontSize));
@@ -362,7 +379,7 @@ canvas.addEventListener('mouseup', (e) => {
                 y: startY,
                 width: endX - startX,
                 height: endY - startY,
-                fill: selectedColor,
+                fill: templateColors[templateColor] || selectedColor,
                 stroke: '#000'
             };
             if (currentRect.width !== 0 && currentRect.height !== 0) {

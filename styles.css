@@ -1,0 +1,72 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f0f0f0;
+}
+
+.container {
+    display: flex;
+    width: 90%;
+    height: 90%;
+}
+
+.toolbar {
+    width: 20%;
+    padding: 20px;
+    background-color: #fff;
+    border-right: 1px solid #ccc;
+    box-sizing: border-box;
+}
+
+.toolbar h3 {
+    margin: 10px 0;
+}
+
+#layerSelect {
+    width: 100%;
+    padding: 5px;
+    margin-bottom: 20px;
+}
+
+#colorPalette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+#colorPalette input {
+    width: 40px;
+    height: 40px;
+    border: none;
+    cursor: pointer;
+}
+
+#randomizeColors {
+    padding: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+#randomizeColors:hover {
+    background-color: #0056b3;
+}
+
+.workspace {
+    width: 80%;
+    position: relative;
+}
+
+#layoutCanvas {
+    width: 100%;
+    height: 100%;
+    border: 1px solid #000;
+    background-color: white;
+}

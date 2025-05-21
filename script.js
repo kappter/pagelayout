@@ -225,8 +225,10 @@ canvas.addEventListener('mousemove', (e) => {
   const y = (e.clientY - rect.top) / scaleFactor;
 
   if (draggedElement.width === 0 && draggedElement.height === 0) {
-    draggedElement.width = x - draggedElement.x;
-    draggedElement.height = y - draggedElement.y;
+    draggedElement.width = Math.abs(x - draggedElement.x); // Absolute difference
+    draggedElement.height = Math.abs(y - draggedElement.y);
+    if (x < draggedElement.x) draggedElement.x = x; // Adjust position if dragging left
+    if (y < draggedElement.y) draggedElement.y = y; // Adjust position if dragging up
   } else if (isResizing) {
     draggedElement.width = Math.max(1, x - draggedElement.x);
     draggedElement.height = Math.max(1, y - draggedElement.y);
@@ -240,12 +242,12 @@ canvas.addEventListener('mousemove', (e) => {
 
 canvas.addEventListener('mouseup', () => {
   if (draggedElement) {
-    draggedElement.width = Math.max(1, draggedElement.width);
-    draggedElement.height = Math.max(1, draggedElement.height);
-    if (draggedElement.width === 1 && draggedElement.height === 1) {
+    draggedElement.width = Math.max(10, draggedElement.width); // Minimum 10x10px
+    draggedElement.height = Math.max(10, draggedElement.height);
+    if (draggedElement.width === 10 && draggedElement.height === 10 && !isResizing) {
       const elements = selectedLayer === 'modules' ? modules : imageBoxes;
       const index = elements.indexOf(draggedElement);
-      if (index > -1) elements.splice(index, 1);
+      if (index > -1) elements.splice(index, 1); // Remove if accidental click
     }
   }
   isDragging = false;

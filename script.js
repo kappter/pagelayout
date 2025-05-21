@@ -45,7 +45,7 @@ let isDragging = false;
 let draggedElement = null;
 let startX, startY;
 let isResizing = false;
-let history = []; // Store actions: { type: 'add'|'move'|'resize', element, oldState }
+let history = [];
 
 function saveState(type, element, oldState = null) {
   history.push({ type, element, oldState: oldState || { ...element } });
@@ -212,7 +212,11 @@ canvas.addEventListener('mousedown', (e) => {
     isDragging = true;
     startX = x - draggedElement.x;
     startY = y - draggedElement.y;
-    isResizing = (x >= draggedElement.x + draggedElement.width - 10 / scaleFactor && y >= draggedElement.y + draggedElement.height - 10 / scaleFactor); // Bottom-right corner
+    const resizeThreshold = 10 / scaleFactor; // Adjusted threshold
+    const rightEdge = draggedElement.x + draggedElement.width;
+    const bottomEdge = draggedElement.y + draggedElement.height;
+    isResizing = (x >= rightEdge - resizeThreshold && x <= rightEdge + resizeThreshold) && 
+                 (y >= bottomEdge - resizeThreshold && y <= bottomEdge + resizeThreshold);
     selectedSection = selectedLayer;
     sectionSelect.value = selectedLayer;
     saveState(isResizing ? 'resize' : 'move', draggedElement);
@@ -245,10 +249,12 @@ canvas.addEventListener('mousemove', (e) => {
   const y = (e.clientY - rect.top) / scaleFactor;
 
   if (draggedElement.width === 0 && draggedElement.height === 0) {
-    draggedElement.width = Math.abs(x - draggedElement.x);
-    draggedElement.height = Math.abs(y - draggedElement.y);
-    if (x < draggedElement.x) draggedElement.x = x;
-    if (y < draggedElement.y) draggedElement.y = y;
+    const newWidth = x - startX;
+    const newHeight = y - startY;
+    draggedElement.width = Math.abs(newWidth);
+    draggedElement.height = Math.abs(newHeight);
+    draggedElement.x = newWidth < 0 ? startX + newWidth : startX;
+    draggedElement.y = newHeight < 0 ? startY + newHeight : startY;
   } else if (isResizing) {
     draggedElement.width = Math.max(10, x - draggedElement.x);
     draggedElement.height = Math.max(10, y - draggedElement.y);

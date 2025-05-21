@@ -6,6 +6,7 @@ const colorInput = document.getElementById('colorInput');
 const randomizeButton = document.getElementById('randomizeButton');
 const addElementButton = document.getElementById('addElementButton');
 const exportPdfButton = document.getElementById('exportPdfButton');
+const undoButton = document.getElementById('undoButton');
 const swatchContainer = document.getElementById('swatch');
 const neutralSwatchContainer = document.getElementById('neutralSwatch');
 
@@ -35,7 +36,7 @@ canvas.width = spreadWidth * scale;
 canvas.height = pageHeight * scale;
 const scaleFactor = canvas.width / spreadWidth;
 
-// Layers with individual colors
+// Layers with individual colors and history
 let modules = [];
 let imageBoxes = [];
 let selectedLayer = 'modules';
@@ -44,6 +45,25 @@ let isDragging = false;
 let draggedElement = null;
 let startX, startY;
 let isResizing = false;
+let history = []; // Store actions: { type: 'add'|'move'|'resize', element, oldState }
+
+function saveState(type, element, oldState = null) {
+  history.push({ type, element, oldState: oldState || { ...element } });
+}
+
+function undo() {
+  if (history.length > 0) {
+    const action = history.pop();
+    if (action.type === 'add') {
+      const elements = selectedLayer === 'modules' ? modules : imageBoxes;
+      const index = elements.indexOf(action.element);
+      if (index > -1) elements.splice(index, 1);
+    } else if (action.type === 'move' || action.type === 'resize') {
+      Object.assign(action.element, action.oldState);
+    }
+    drawSpread();
+  }
+}
 
 // Update swatches
 function updateSwatches() {
@@ -114,7 +134,6 @@ function drawSpread() {
   ctx.lineTo((pageWidth + gutter) * scaleFactor, pageHeight * scaleFactor);
   ctx.stroke();
   
-  // Draw modules
   modules.forEach(module => {
     ctx.fillStyle = module.color ? module.color + '33' : '#0000ff33';
     ctx.strokeStyle = module.color ? module.color : '#0000ff';
@@ -123,7 +142,6 @@ function drawSpread() {
     ctx.strokeRect(module.x * scaleFactor, module.y * scaleFactor, module.width * scaleFactor, module.height * scaleFactor);
   });
   
-  // Draw image boxes
   imageBoxes.forEach(box => {
     ctx.strokeStyle = box.color ? box.color : '#00ff00';
     ctx.setLineDash([5, 5]);
@@ -194,9 +212,10 @@ canvas.addEventListener('mousedown', (e) => {
     isDragging = true;
     startX = x - draggedElement.x;
     startY = y - draggedElement.y;
-    isResizing = (x >= draggedElement.x + draggedElement.width - 10 / scaleFactor && y >= draggedElement.y + draggedElement.height - 10 / scaleFactor); // Bottom-right corner resize
+    isResizing = (x >= draggedElement.x + draggedElement.width - 10 / scaleFactor && y >= draggedElement.y + draggedElement.height - 10 / scaleFactor); // Bottom-right corner
     selectedSection = selectedLayer;
     sectionSelect.value = selectedLayer;
+    saveState(isResizing ? 'resize' : 'move', draggedElement);
   } else if (selectedSection !== 'background') {
     draggedElement = { x, y, width: 0, height: 0, color: null };
     isDragging = true;
@@ -211,6 +230,7 @@ canvas.addEventListener('mousedown', (e) => {
       selectedSection = 'imageBoxes';
       sectionSelect.value = 'imageBoxes';
     }
+    saveState('add', draggedElement);
   } else {
     draggedElement = { color: sectionColors.background };
   }
@@ -225,13 +245,13 @@ canvas.addEventListener('mousemove', (e) => {
   const y = (e.clientY - rect.top) / scaleFactor;
 
   if (draggedElement.width === 0 && draggedElement.height === 0) {
-    draggedElement.width = Math.abs(x - draggedElement.x); // Absolute difference
+    draggedElement.width = Math.abs(x - draggedElement.x);
     draggedElement.height = Math.abs(y - draggedElement.y);
-    if (x < draggedElement.x) draggedElement.x = x; // Adjust position if dragging left
-    if (y < draggedElement.y) draggedElement.y = y; // Adjust position if dragging up
+    if (x < draggedElement.x) draggedElement.x = x;
+    if (y < draggedElement.y) draggedElement.y = y;
   } else if (isResizing) {
-    draggedElement.width = Math.max(1, x - draggedElement.x);
-    draggedElement.height = Math.max(1, y - draggedElement.y);
+    draggedElement.width = Math.max(10, x - draggedElement.x);
+    draggedElement.height = Math.max(10, y - draggedElement.y);
   } else {
     draggedElement.x = x - startX;
     draggedElement.y = y - startY;
@@ -242,12 +262,12 @@ canvas.addEventListener('mousemove', (e) => {
 
 canvas.addEventListener('mouseup', () => {
   if (draggedElement) {
-    draggedElement.width = Math.max(10, draggedElement.width); // Minimum 10x10px
+    draggedElement.width = Math.max(10, draggedElement.width);
     draggedElement.height = Math.max(10, draggedElement.height);
     if (draggedElement.width === 10 && draggedElement.height === 10 && !isResizing) {
       const elements = selectedLayer === 'modules' ? modules : imageBoxes;
       const index = elements.indexOf(draggedElement);
-      if (index > -1) elements.splice(index, 1); // Remove if accidental click
+      if (index > -1) elements.splice(index, 1);
     }
   }
   isDragging = false;
@@ -270,8 +290,12 @@ addElementButton.addEventListener('click', () => {
   } else {
     imageBoxes.push(newElement);
   }
+  saveState('add', newElement);
   drawSpread();
 });
+
+// Handle undo button
+undoButton.addEventListener('click', undo);
 
 // Export to PDF
 exportPdfButton.addEventListener('click', () => {

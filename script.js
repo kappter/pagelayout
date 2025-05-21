@@ -43,6 +43,7 @@ let selectedSection = null;
 let isDragging = false;
 let draggedElement = null;
 let startX, startY;
+let isResizing = false;
 
 // Update swatches
 function updateSwatches() {
@@ -68,14 +69,22 @@ function updateSwatches() {
     swatch.addEventListener('mouseover', () => {
       if (selectedSection && draggedElement) {
         const color = swatch.dataset.color;
-        draggedElement.color = color;
+        if (selectedSection === 'background') {
+          sectionColors.background = color;
+        } else {
+          draggedElement.color = color;
+        }
         drawSpread();
       }
     });
     swatch.addEventListener('click', () => {
       if (selectedSection && draggedElement) {
         const color = swatch.dataset.color;
-        draggedElement.color = color;
+        if (selectedSection === 'background') {
+          sectionColors.background = color;
+        } else {
+          draggedElement.color = color;
+        }
         sectionSelect.value = '';
         selectedSection = null;
         drawSpread();
@@ -107,7 +116,7 @@ function drawSpread() {
   
   // Draw modules
   modules.forEach(module => {
-    ctx.fillStyle = module.color ? module.color + '33' : '#0000ff33'; // Semi-transparent default
+    ctx.fillStyle = module.color ? module.color + '33' : '#0000ff33';
     ctx.strokeStyle = module.color ? module.color : '#0000ff';
     ctx.lineWidth = 2;
     ctx.fillRect(module.x * scaleFactor, module.y * scaleFactor, module.width * scaleFactor, module.height * scaleFactor);
@@ -129,9 +138,16 @@ updateSwatches();
 drawSpread();
 
 // Handle section selection
-sectionSelect.addEventListener('change', () => {
-  selectedSection = sectionSelect.value;
-  selectedLayer = selectedSection === 'background' ? 'modules' : selectedSection;
+sectionSelect.addEventListener('change', (e) => {
+  selectedSection = e.target.value;
+  if (selectedSection === 'background') {
+    draggedElement = { color: sectionColors.background }; // For background coloring
+  } else {
+    selectedLayer = selectedSection;
+    const elements = selectedLayer === 'modules' ? modules : imageBoxes;
+    draggedElement = null; // Reset for element selection
+    canvas.dispatchEvent(new Event('mousedown')); // Trigger check on canvas
+  }
   drawSpread();
 });
 
@@ -163,25 +179,26 @@ randomizeButton.addEventListener('click', () => {
   drawSpread();
 });
 
-// Handle canvas clicks
-canvas.addEventListener('mousedown', e => {
+// Handle canvas events
+canvas.addEventListener('mousedown', (e) => {
   const rect = canvas.getBoundingClientRect();
   const x = (e.clientX - rect.left) / scaleFactor;
   const y = (e.clientY - rect.top) / scaleFactor;
-  
+
   const elements = selectedLayer === 'modules' ? modules : imageBoxes;
   draggedElement = elements.find(el => 
     x >= el.x && x <= el.x + el.width && 
     y >= el.y && y <= el.y + el.height
   );
-  
+
   if (draggedElement) {
     isDragging = true;
     startX = x - draggedElement.x;
     startY = y - draggedElement.y;
+    isResizing = (x >= draggedElement.x + el.width - 10 * scaleFactor && y >= draggedElement.y + el.height - 10 * scaleFactor); // Bottom-right corner resize
     selectedSection = selectedLayer;
     sectionSelect.value = selectedLayer;
-  } else {
+  } else if (selectedSection !== 'background') {
     draggedElement = { x, y, width: 0, height: 0, color: null };
     isDragging = true;
     startX = x;
@@ -195,43 +212,46 @@ canvas.addEventListener('mousedown', e => {
       selectedSection = 'imageBoxes';
       sectionSelect.value = 'imageBoxes';
     }
+  } else {
+    // Background click resets draggedElement for background coloring
+    draggedElement = { color: sectionColors.background };
   }
   drawSpread();
 });
 
-// Handle mouse move
-canvas.addEventListener('mousemove', e => {
+canvas.addEventListener('mousemove', (e) => {
   if (!isDragging || !draggedElement) return;
-  
+
   const rect = canvas.getBoundingClientRect();
   const x = (e.clientX - rect.left) / scaleFactor;
   const y = (e.clientY - rect.top) / scaleFactor;
-  
+
   if (draggedElement.width === 0 && draggedElement.height === 0) {
     draggedElement.width = x - draggedElement.x;
     draggedElement.height = y - draggedElement.y;
+  } else if (isResizing) {
+    draggedElement.width = Math.max(1, x - draggedElement.x);
+    draggedElement.height = Math.max(1, y - draggedElement.y);
   } else {
     draggedElement.x = x - startX;
     draggedElement.y = y - startY;
   }
-  
+
   drawSpread();
 });
 
-// Handle mouse up
 canvas.addEventListener('mouseup', () => {
   if (draggedElement) {
-    // Ensure non-negative dimensions
-    draggedElement.width = Math.max(0, draggedElement.width);
-    draggedElement.height = Math.max(0, draggedElement.height);
-    if (draggedElement.width === 0 || draggedElement.height === 0) {
-      // Remove if too small (e.g., accidental click)
+    draggedElement.width = Math.max(1, draggedElement.width);
+    draggedElement.height = Math.max(1, draggedElement.height);
+    if (draggedElement.width === 1 && draggedElement.height === 1) {
       const elements = selectedLayer === 'modules' ? modules : imageBoxes;
       const index = elements.indexOf(draggedElement);
-      if (index > -1) elements.splice(index, 1);
+      if (index > -1) elements.splice(index, 1); // Remove if accidental click
     }
   }
   isDragging = false;
+  isResizing = false;
   draggedElement = null;
   drawSpread();
 });

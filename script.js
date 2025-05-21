@@ -13,12 +13,12 @@ const neutralSwatchContainer = document.getElementById('neutralSwatch');
 let colors = ['#8A7B96', '#7B968A', '#968A7B', '#627C70', '#ADA397'];
 const neutralColors = ['#000000', '#FFFFFF', '#333333', '#666666', '#CCCCCC'];
 let sectionColors = {
-  background: '#ffffff', // Spread background
-  modules: '#0000ff33', // Semi-transparent blue
-  imageBoxes: '#00ff00' // Green (used for stroke)
+  background: '#ffffff',
+  modules: '#0000ff33',
+  imageBoxes: '#00ff00'
 };
 
-// Page dimensions (in inches, scaled to pixels)
+// Page dimensions
 const pageWidthInches = 8.5;
 const pageHeightInches = 11;
 const spreadWidthInches = pageWidthInches * 2;
@@ -66,7 +66,6 @@ function updateSwatches() {
     neutralSwatchContainer.appendChild(swatch);
   });
 
-  // Add swatch event listeners
   document.querySelectorAll('.swatch, .neutral-swatch').forEach(swatch => {
     swatch.addEventListener('mouseover', () => {
       if (selectedSection) {
@@ -74,7 +73,7 @@ function updateSwatches() {
         if (selectedSection === 'background') {
           sectionColors.background = color;
         } else if (selectedSection === 'modules') {
-          sectionColors.modules = color + '33'; // Maintain semi-transparency
+          sectionColors.modules = color + '33';
         } else if (selectedSection === 'imageBoxes') {
           sectionColors.imageBoxes = color;
         }
@@ -103,11 +102,9 @@ function updateSwatches() {
 function drawSpread() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   
-  // Draw background
   ctx.fillStyle = sectionColors.background;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
-  // Draw bleed lines (red)
   ctx.strokeStyle = '#ff0000';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -115,7 +112,6 @@ function drawSpread() {
   ctx.rect(pageWidth * scaleFactor + gutter * scaleFactor, 0, pageWidth * scaleFactor, pageHeight * scaleFactor);
   ctx.stroke();
   
-  // Draw gutter lines
   ctx.beginPath();
   ctx.moveTo(pageWidth * scaleFactor, 0);
   ctx.lineTo(pageWidth * scaleFactor, pageHeight * scaleFactor);
@@ -123,16 +119,14 @@ function drawSpread() {
   ctx.lineTo((pageWidth + gutter) * scaleFactor, pageHeight * scaleFactor);
   ctx.stroke();
   
-  // Draw modules
   ctx.fillStyle = sectionColors.modules;
-  ctx.strokeStyle = sectionColors.modules.slice(0, 7); // Remove transparency for stroke
+  ctx.strokeStyle = sectionColors.modules.slice(0, 7);
   ctx.lineWidth = 2;
   modules.forEach(module => {
     ctx.fillRect(module.x * scaleFactor, module.y * scaleFactor, module.width * scaleFactor, module.height * scaleFactor);
     ctx.strokeRect(module.x * scaleFactor, module.y * scaleFactor, module.width * scaleFactor, module.height * scaleFactor);
   });
   
-  // Draw image boxes
   ctx.strokeStyle = sectionColors.imageBoxes;
   ctx.setLineDash([5, 5]);
   ctx.lineWidth = 2;
@@ -149,6 +143,7 @@ drawSpread();
 // Handle section selection
 sectionSelect.addEventListener('change', () => {
   selectedSection = sectionSelect.value;
+  selectedLayer = selectedSection === 'background' ? 'modules' : selectedSection;
   drawSpread();
 });
 
@@ -176,7 +171,7 @@ randomizeButton.addEventListener('click', () => {
   };
   colors = [getRandomHexColor(), getRandomHexColor(), getRandomHexColor(), getRandomHexColor(), getRandomHexColor()];
   colorInput.value = colors.map(c => c.slice(1)).join(',');
-  sectionColors.modules = '#0000ff33'; // Reset to default
+  sectionColors.modules = '#0000ff33';
   sectionColors.imageBoxes = '#00ff00';
   updateSwatches();
   drawSpread();
@@ -201,7 +196,7 @@ canvas.addEventListener('mousedown', e => {
     selectedSection = selectedLayer;
     sectionSelect.value = selectedLayer;
   } else {
-    draggedElement = { x, y, width: 0, height: 0 };
+    draggedElement = { x, y, width: 50, height: 50 }; // Minimum size
     isDragging = true;
     startX = x;
     startY = y;
@@ -226,10 +221,12 @@ canvas.addEventListener('mousemove', e => {
   const x = (e.clientX - rect.left) / scaleFactor;
   const y = (e.clientY - rect.top) / scaleFactor;
   
-  if (draggedElement.width === 0 && draggedElement.height === 0) {
-    draggedElement.width = x - draggedElement.x;
-    draggedElement.height = y - draggedElement.y;
+  if (draggedElement.width === 50 && draggedElement.height === 50) {
+    // Resize new element with minimum size
+    draggedElement.width = Math.max(50, x - draggedElement.x);
+    draggedElement.height = Math.max(50, y - draggedElement.y);
   } else {
+    // Move existing element
     draggedElement.x = x - startX;
     draggedElement.y = y - startY;
   }
@@ -239,6 +236,11 @@ canvas.addEventListener('mousemove', e => {
 
 // Handle mouse up
 canvas.addEventListener('mouseup', () => {
+  if (draggedElement) {
+    // Ensure minimum size
+    draggedElement.width = Math.max(50, draggedElement.width);
+    draggedElement.height = Math.max(50, draggedElement.height);
+  }
   isDragging = false;
   draggedElement = null;
   drawSpread();
@@ -268,22 +270,18 @@ exportPdfButton.addEventListener('click', () => {
     format: [spreadWidthInches, pageHeightInches]
   });
   
-  // Draw background
   const bgColor = sectionColors.background.match(/[0-9A-Fa-f]{2}/g).map(hex => parseInt(hex, 16));
   doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
   doc.rect(0, 0, spreadWidthInches, pageHeightInches, 'F');
   
-  // Draw bleed lines
   doc.setDrawColor(255, 0, 0);
   doc.setLineWidth(0.01);
   doc.rect(0, 0, pageWidthInches, pageHeightInches);
   doc.rect(pageWidthInches + gutterInches, 0, pageWidthInches, pageHeightInches);
   
-  // Draw gutter lines
   doc.line(pageWidthInches, 0, pageWidthInches, pageHeightInches);
   doc.line(pageWidthInches + gutterInches, 0, pageWidthInches + gutterInches, pageHeightInches);
   
-  // Draw modules
   const moduleColor = sectionColors.modules.slice(0, 7).match(/[0-9A-Fa-f]{2}/g).map(hex => parseInt(hex, 16));
   doc.setFillColor(moduleColor[0], moduleColor[1], moduleColor[2], 0.3);
   doc.setDrawColor(moduleColor[0], moduleColor[1], moduleColor[2]);
@@ -291,7 +289,6 @@ exportPdfButton.addEventListener('click', () => {
     doc.rect(module.x / dpi, module.y / dpi, module.width / dpi, module.height / dpi, 'FD');
   });
   
-  // Draw image boxes
   const imageBoxColor = sectionColors.imageBoxes.match(/[0-9A-Fa-f]{2}/g).map(hex => parseInt(hex, 16));
   doc.setDrawColor(imageBoxColor[0], imageBoxColor[1], imageBoxColor[2]);
   doc.setLineDash([0.05, 0.05]);

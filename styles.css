@@ -2,7 +2,7 @@ body {
   font-family: 'Inter', Arial, sans-serif;
   margin: 0;
   padding: 20px;
-  background-color: #f4f4f4;
+  background-color: #333333;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -16,7 +16,7 @@ body {
 h1 {
   font-size: 32px;
   font-weight: 700;
-  color: #222;
+  color: #ffffff;
   text-align: center;
 }
 
@@ -41,39 +41,32 @@ h1 {
   height: auto;
   background-color: #ffffff;
   border-radius: 12px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
 
-.swatch-container, .neutral-swatch-container {
+.swatch-container {
   display: flex;
   gap: 10px;
   margin-bottom: 15px;
   justify-content: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 5px;
 }
 
-.swatch {
-  width: 50px;
-  height: 50px;
-  border-radius: 10px;
-  cursor: pointer;
-  border: 2px solid transparent;
-  transition: border 0.3s, transform 0.2s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.neutral-swatch {
-  width: 30px;
-  height: 30px;
+.swatch, .neutral-swatch {
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
   cursor: pointer;
   border: 2px solid transparent;
   transition: border 0.3s, transform 0.2s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
 }
 
 .swatch:hover, .neutral-swatch:hover {
-  border: 2px solid #000;
+  border: 2px solid #ffffff;
   transform: scale(1.1);
 }
 
@@ -81,11 +74,12 @@ h1 {
   margin-top: 10px;
   text-align: center;
   max-width: 600px;
-  border: 1px solid #ddd;
+  border: 1px solid #555555;
   padding: 12px;
   border-radius: 6px;
-  background-color: #f9f9f9;
+  background-color: #444444;
   font-size: 14px;
+  color: #e0e0e0;
 }
 
 @media (max-width: 600px) {
@@ -106,4 +100,17 @@ h1 {
     width: 100%;
     max-width: 100%;
   }
+
+  .swatch-container {
+    padding: 5px;
+  }
+}
+
+footer {
+  margin-top: 20px;
+  font-size: 12px;
+}
+
+.donation-links a {
+  color: #20c997;
 }

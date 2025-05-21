@@ -40,51 +40,54 @@
         </script><!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Page Layout Tool</title>
-    <link rel="stylesheet" href="styles.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yearbook Spread Visualizer</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-    <div class="container">
-        <div class="toolbar">
-            <h3>Layers</h3>
-            <select id="layerSelect">
-                <option value="modules">Modules</option>
-                <option value="moduleGroups">Module Groups</option>
-                <option value="photoBoxes">Photo Boxes</option>
-                <option value="imageBoxes">Image Boxes</option>
-                <option value="textBoxes">Text Boxes</option>
-            </select>
-            <div id="layerTools">
-                <!-- Dynamic tools will be injected here -->
-            </div>
-            <h3>Templates</h3>
-            <select id="colorTemplate">
-                <option value="default">Default</option>
-                <option value="blueTheme">Blue Theme (#00C4FF)</option>
-                <option value="redTheme">Red Theme (#FF4040)</option>
-                <option value="greenTheme">Green Theme (#40FF80)</option>
-                <option value="yellowTheme">Yellow Theme (#FFFF40)</option>
-            </select>
-            <h3>Color Swatch</h3>
-            <div id="colorSwatch">
-                <button class="swatch" style="background-color: #FF4040;" data-color="#FF4040"></button>
-                <button class="swatch" style="background-color: #00C4FF;" data-color="#00C4FF"></button>
-                <button class="swatch" style="background-color: #40FF80;" data-color="#40FF80"></button>
-                <button class="swatch" style="background-color: #FFFF40;" data-color="#FFFF40"></button>
-                <button class="swatch" style="background-color: #FF00FF;" data-color="#FF00FF"></button>
-            </div>
-            <h3>Custom Color</h3>
-            <input type="color" id="customColor" value="#FF4040">
-            <button id="exportPDF">Export as PDF</button>
-            <button id="exportSVG">Export as SVG</button>
-        </div>
-        <div class="workspace">
-            <canvas id="layoutCanvas"></canvas>
-        </div>
+<body class="bg-gray-100 font-sans">
+  <div class="container mx-auto p-4 flex flex-col items-center min-h-screen">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">Yearbook Spread Visualizer</h1>
+    
+    <!-- Toolbar -->
+    <div class="controls flex flex-col md:flex-row gap-4 mb-6 w-full max-w-4xl">
+      <div class="flex flex-col w-full md:w-auto">
+        <label for="sectionSelect" class="text-sm font-medium text-gray-700 mb-1">Select Section</label>
+        <select id="sectionSelect" class="p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500">
+          <option value="">Select</option>
+          <option value="background">Background</option>
+          <option value="modules">Modules</option>
+          <option value="imageBoxes">Image Boxes</option>
+        </select>
+      </div>
+      <div class="flex flex-col w-full md:w-auto">
+        <label for="colorInput" class="text-sm font-medium text-gray-700 mb-1">Enter 5 Hex Colors (e.g., 8A7B96,7B968A,968A7B,627C70,ADA397)</label>
+        <input id="colorInput" type="text" class="p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500" placeholder="Enter 5 hex codes">
+      </div>
+      <button id="randomizeButton" class="p-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 focus:ring-2 focus:ring-teal-500">Randomize Colors</button>
+      <button id="addElementButton" class="p-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 focus:ring-2 focus:ring-teal-500">Add Element</button>
+      <button id="exportPdfButton" class="p-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 focus:ring-2 focus:ring-teal-500">Export as PDF</button>
     </div>
-    <script src="script.js"></script>
+    
+    <!-- Swatches -->
+    <div class="swatch-container flex gap-2 mb-4 flex-wrap justify-center">
+      <div id="swatch"></div>
+    </div>
+    <div class="neutral-swatch-container flex gap-2 mb-4 flex-wrap justify-center">
+      <div id="neutralSwatch"></div>
+    </div>
+    
+    <!-- Canvas -->
+    <canvas id="spreadCanvas" class="border border-gray-300 shadow-lg"></canvas>
+    
+    <!-- Instructions -->
+    <div class="instructions mt-4 text-sm text-gray-600 max-w-2xl text-center">
+      Select a section (Background, Modules, or Image Boxes) using the dropdown or by clicking an element. Paste 5 hex codes or click Randomize to set colors (Modules and Image Boxes stay white unless manually changed). Click and drag on the canvas to create or move rectangles. Modules are semi-transparent blue; image boxes are dashed green. Red lines indicate bleed (0.125") and gutter (0.5"). Click "Add Element" to create a new rectangle. Click "Export as PDF" to download your design.
+    </div>
+  </div>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>

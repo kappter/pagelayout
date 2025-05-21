@@ -1,84 +1,109 @@
 body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    background-color: #f0f0f0;
+  font-family: 'Inter', Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
+  background-color: #f4f4f4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
 }
 
 .container {
-    display: flex;
-    width: 90%;
-    height: 90%;
+  max-width: 1200px;
 }
 
-.toolbar {
-    width: 20%;
-    padding: 20px;
-    background-color: #fff;
-    border-right: 1px solid #ccc;
-    box-sizing: border-box;
-    overflow-y: auto;
+h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #222;
+  text-align: center;
 }
 
-.toolbar h3 {
-    margin: 10px 0;
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
-#layerSelect {
-    width: 100%;
-    padding: 5px;
-    margin-bottom: 20px;
-}
-
-#layerTools {
-    margin-top: 20px;
-}
-
-#colorPalette {
-    display: flex;
+@media (min-width: 768px) {
+  .controls {
+    flex-direction: row;
     flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 20px;
+    justify-content: center;
+  }
 }
 
-#colorPalette input {
-    width: 40px;
-    height: 40px;
-    border: none;
-    cursor: pointer;
+#spreadCanvas {
+  width: 80vw;
+  max-width: 960px;
+  height: auto;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
 }
 
-#randomizeColors {
-    padding: 10px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    cursor: pointer;
-    margin-top: 10px;
+.swatch-container, .neutral-swatch-container {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
-#randomizeColors:hover {
-    background-color: #0056b3;
+.swatch {
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border 0.3s, transform 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-#imageUpload, #fontSize, #fontFamily {
+.neutral-swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border 0.3s, transform 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.swatch:hover, .neutral-swatch:hover {
+  border: 2px solid #000;
+  transform: scale(1.1);
+}
+
+.instructions {
+  margin-top: 10px;
+  text-align: center;
+  max-width: 600px;
+  border: 1px solid #ddd;
+  padding: 12px;
+  border-radius: 6px;
+  background-color: #f9f9f9;
+  font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  .instructions {
+    max-width: 100%;
+    font-size: 13px;
+  }
+
+  #spreadCanvas {
+    width: 90vw;
+  }
+
+  .controls {
+    max-width: 100%;
+  }
+
+  #sectionSelect, #colorInput, #randomizeButton, #addElementButton, #exportPdfButton {
     width: 100%;
-    padding: 5px;
-    margin-bottom: 10px;
-}
-
-.workspace {
-    width: 80%;
-    position: relative;
-}
-
-#layoutCanvas {
-    width: 100%;
-    height: 100%;
-    border: 1px solid #000;
-    background-color: white;
+    max-width: 100%;
+  }
 }

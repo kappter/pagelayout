@@ -1,502 +1,304 @@
-const canvas = document.getElementById('layoutCanvas');
+const { jsPDF } = window.jspdf;
+const canvas = document.getElementById('spreadCanvas');
 const ctx = canvas.getContext('2d');
-const layerSelect = document.getElementById('layerSelect');
-const layerTools = document.getElementById('layerTools');
-const exportPDF = document.getElementById('exportPDF');
-const exportSVG = document.getElementById('exportSVG');
-const colorTemplate = document.getElementById('colorTemplate');
-const colorSwatch = document.getElementById('colorSwatch');
-const customColor = document.getElementById('customColor');
+const sectionSelect = document.getElementById('sectionSelect');
+const colorInput = document.getElementById('colorInput');
+const randomizeButton = document.getElementById('randomizeButton');
+const addElementButton = document.getElementById('addElementButton');
+const exportPdfButton = document.getElementById('exportPdfButton');
+const swatchContainer = document.getElementById('swatch');
+const neutralSwatchContainer = document.getElementById('neutralSwatch');
 
-// Set canvas size based on container
-function resizeCanvas() {
-    const workspace = document.querySelector('.workspace');
-    canvas.width = workspace.clientWidth;
-    canvas.height = workspace.clientHeight;
-    drawSpread();
-}
-
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
-
-// Layer data
-const layers = {
-    modules: [],
-    moduleGroups: [],
-    photoBoxes: [],
-    imageBoxes: [],
-    textBoxes: []
+// Color palette
+let colors = ['#8A7B96', '#7B968A', '#968A7B', '#627C70', '#ADA397'];
+const neutralColors = ['#000000', '#FFFFFF', '#333333', '#666666', '#CCCCCC'];
+let sectionColors = {
+  background: '#ffffff', // Spread background
+  modules: '#0000ff33', // Semi-transparent blue
+  imageBoxes: '#00ff00' // Green (used for stroke)
 };
-let currentLayer = 'modules';
-let selectedColor = '#FF4040'; // Default to first swatch color
-let selectedFontSize = '16px';
-let selectedFontFamily = 'Arial';
+
+// Page dimensions (in inches, scaled to pixels)
+const pageWidthInches = 8.5;
+const pageHeightInches = 11;
+const spreadWidthInches = pageWidthInches * 2;
+const bleedInches = 0.125;
+const gutterInches = 0.5;
+const dpi = 72;
+const scale = 0.8;
+const pageWidth = pageWidthInches * dpi;
+const pageHeight = pageHeightInches * dpi;
+const spreadWidth = spreadWidthInches * dpi;
+const bleed = bleedInches * dpi;
+const gutter = gutterInches * dpi;
+
+// Canvas setup
+canvas.width = spreadWidth * scale;
+canvas.height = pageHeight * scale;
+const scaleFactor = canvas.width / spreadWidth;
+
+// Layers
+let modules = [];
+let imageBoxes = [];
+let selectedLayer = 'modules';
+let selectedSection = null;
 let isDragging = false;
+let draggedElement = null;
 let startX, startY;
-let currentRect = null;
-let templateColor = 'default';
 
-// Template colors
-const templateColors = {
-    default: '#FF0000',
-    blueTheme: '#00C4FF',
-    redTheme: '#FF4040',
-    greenTheme: '#40FF80',
-    yellowTheme: '#FFFF40'
-};
+// Update swatches
+function updateSwatches() {
+  swatchContainer.innerHTML = '';
+  colors.forEach(color => {
+    const swatch = document.createElement('div');
+    swatch.className = 'swatch';
+    swatch.style.backgroundColor = color;
+    swatch.dataset.color = color;
+    swatchContainer.appendChild(swatch);
+  });
 
-// Layer-specific toolbar content
-const layerToolConfigs = {
-    modules: `
-        <h3>Module Tools</h3>
-        <p>Click to create bullseye quadrants or drag to draw rectangles.</p>
-        <div id="colorPalette">
-            <input type="color" id="color1" value="#FF4040">
-            <input type="color" id="color2" value="#00FF00">
-            <input type="color" id="color3" value="#0000FF">
-            <input type="color" id="color4" value="#FFFF00">
-            <input type="color" id="color5" value="#FF00FF">
-        </div>
-        <button id="randomizeColors">Randomize Colors</button>
-        <label for="moduleCount">Modules (2-10):</label>
-        <input type="number" id="moduleCount" min="2" max="10" value="2">
-        <button id="makeModules">Make Modules</button>
-    `,
-    moduleGroups: `
-        <h3>Module Group Tools</h3>
-        <div id="colorPalette">
-            <input type="color" id="color1" value="#FF4040">
-            <input type="color" id="color2" value="#00FF00">
-            <input type="color" id="color3" value="#0000FF">
-            <input type="color" id="color4" value="#FFFF00">
-            <input type="color" id="color5" value="#FF00FF">
-        </div>
-        <button id="randomizeColors">Randomize Colors</button>
-    `,
-    photoBoxes: `
-        <h3>Photo Box Tools</h3>
-        <input type="file" id="imageUpload" accept="image/*">
-    `,
-    imageBoxes: `
-        <h3>Image Box Tools</h3>
-        <input type="file" id="imageUpload" accept="image/*">
-    `,
-    textBoxes: `
-        <h3>Text Box Tools</h3>
-        <label for="headline">Headline:</label>
-        <input type="text" id="headline" placeholder="Enter headline" value="ALL CAPS LEAD IN">
-        <label for="bodyText">Body Text:</label>
-        <input type="text" id="bodyText" placeholder="Enter text" value="Fugit eumenda nobitis nisi...">
-        <label for="fontSize">Font Size:</label>
-        <select id="fontSize">
-            <option value="12px">12px</option>
-            <option value="16px" selected>16px</option>
-            <option value="20px">20px</option>
-            <option value="24px">24px</option>
-            <option value="36px">36px</option>
-        </select>
-        <label for="fontFamily">Font Family:</label>
-        <select id="fontFamily">
-            <option value="Arial" selected>Arial</option>
-            <option value="Times New Roman">Times New Roman</option>
-            <option value="Helvetica">Helvetica</option>
-        </select>
-    `
-};
+  neutralSwatchContainer.innerHTML = '';
+  neutralColors.forEach(color => {
+    const swatch = document.createElement('div');
+    swatch.className = 'neutral-swatch';
+    swatch.style.backgroundColor = color;
+    swatch.dataset.color = color;
+    neutralSwatchContainer.appendChild(swatch);
+  });
 
-// Update toolbar based on layer
-function updateToolbar() {
-    layerTools.innerHTML = layerToolConfigs[currentLayer];
-    
-    // Reattach event listeners for color palette
-    if (currentLayer === 'modules' || currentLayer === 'moduleGroups') {
-        const colorInputs = [
-            document.getElementById('color1'),
-            document.getElementById('color2'),
-            document.getElementById('color3'),
-            document.getElementById('color4'),
-            document.getElementById('color5')
-        ];
-        colorInputs.forEach(input => {
-            if (input) {
-                input.addEventListener('change', () => {
-                    selectedColor = input.value;
-                });
-            }
-        });
-        const randomizeColors = document.getElementById('randomizeColors');
-        if (randomizeColors) {
-            randomizeColors.addEventListener('click', () => {
-                colorInputs.forEach(input => {
-                    if (input) {
-                        const randomColor = `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`;
-                        input.value = randomColor;
-                    }
-                });
-                selectedColor = colorInputs[0].value;
-            });
+  // Add swatch event listeners
+  document.querySelectorAll('.swatch, .neutral-swatch').forEach(swatch => {
+    swatch.addEventListener('mouseover', () => {
+      if (selectedSection) {
+        const color = swatch.dataset.color;
+        if (selectedSection === 'background') {
+          sectionColors.background = color;
+        } else if (selectedSection === 'modules') {
+          sectionColors.modules = color + '33'; // Maintain semi-transparency
+        } else if (selectedSection === 'imageBoxes') {
+          sectionColors.imageBoxes = color;
         }
-    }
-    
-    // Reattach event listeners for image upload
-    if (currentLayer === 'photoBoxes' || currentLayer === 'imageBoxes') {
-        const imageUpload = document.getElementById('imageUpload');
-        if (imageUpload) {
-            imageUpload.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const img = new Image();
-                    img.src = URL.createObjectURL(file);
-                    img.onload = () => {
-                        currentRect.image = img;
-                        drawSpread();
-                    };
-                }
-            });
-        }
-    }
-    
-    // Reattach event listeners for text box options
-    if (currentLayer === 'textBoxes') {
-        const headline = document.getElementById('headline');
-        const bodyText = document.getElementById('bodyText');
-        const fontSize = document.getElementById('fontSize');
-        const fontFamily = document.getElementById('fontFamily');
-        if (headline) {
-            headline.addEventListener('input', () => {
-                currentRect.headline = headline.value;
-                drawSpread();
-            });
-        }
-        if (bodyText) {
-            bodyText.addEventListener('input', () => {
-                currentRect.bodyText = bodyText.value;
-                drawSpread();
-            });
-        }
-        if (fontSize) {
-            fontSize.addEventListener('change', () => {
-                selectedFontSize = fontSize.value;
-                drawSpread();
-            });
-        }
-        if (fontFamily) {
-            fontFamily.addEventListener('change', () => {
-                selectedFontFamily = fontFamily.value;
-                drawSpread();
-            });
-        }
-    }
-    
-    // Reattach event listeners for make modules
-    if (currentLayer === 'modules') {
-        const makeModules = document.getElementById('makeModules');
-        const moduleCount = document.getElementById('moduleCount');
-        if (makeModules && moduleCount) {
-            makeModules.addEventListener('click', () => {
-                const count = parseInt(moduleCount.value);
-                if (count >= 2 && count <= 10) {
-                    canvas.dispatchEvent(new Event('mousedown'));
-                    createEqualModules(count);
-                    canvas.dispatchEvent(new Event('mouseup'));
-                } else {
-                    alert('Please enter a number between 2 and 10.');
-                }
-            });
-        }
-    }
-}
-
-// Layer selection
-layerSelect.addEventListener('change', () => {
-    currentLayer = layerSelect.value;
-    updateToolbar();
-    drawSpread();
-});
-
-// Template selection
-colorTemplate.addEventListener('change', () => {
-    templateColor = colorTemplate.value;
-    if (templateColor !== 'default') {
-        selectedColor = templateColors[templateColor];
-    }
-    drawSpread();
-});
-
-// Color swatch selection
-colorSwatch.addEventListener('click', (e) => {
-    const swatch = e.target.closest('.swatch');
-    if (swatch) {
-        selectedColor = swatch.getAttribute('data-color');
-        templateColor = 'default'; // Reset template to default when swatch is selected
-        colorTemplate.value = 'default'; // Update dropdown to reflect default
         drawSpread();
-    }
-});
+      }
+    });
+    swatch.addEventListener('click', () => {
+      if (selectedSection) {
+        const color = swatch.dataset.color;
+        if (selectedSection === 'background') {
+          sectionColors.background = color;
+        } else if (selectedSection === 'modules') {
+          sectionColors.modules = color + '33';
+        } else if (selectedSection === 'imageBoxes') {
+          sectionColors.imageBoxes = color;
+        }
+        sectionSelect.value = '';
+        selectedSection = null;
+        drawSpread();
+      }
+    });
+  });
+}
 
-// Custom color selection
-customColor.addEventListener('change', () => {
-    selectedColor = customColor.value;
-    templateColor = 'default'; // Reset template to default when custom color is selected
-    colorTemplate.value = 'default'; // Update dropdown to reflect default
-    drawSpread();
-});
-
-// Draw yearbook spread
+// Draw the spread
 function drawSpread() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Calculate dimensions (72 DPI)
-    const pageWidth = (canvas.width - 20) / 2;
-    const pageHeight = canvas.height;
-    const margin = pageWidth * (1 / 8.5);
-    const gutter = 20;
-    
-    // Draw left page
-    ctx.strokeStyle = '#000';
-    ctx.strokeRect(0, 0, pageWidth, pageHeight);
-    ctx.strokeRect(margin, margin, pageWidth - 2 * margin, pageHeight - 2 * margin);
-    
-    // Draw right page
-    ctx.strokeRect(pageWidth + gutter, 0, pageWidth, pageHeight);
-    ctx.strokeRect(pageWidth + gutter + margin, margin, pageWidth - 2 * margin, pageHeight - 2 * margin);
-    
-    // Draw all rectangles
-    Object.keys(layers).forEach(layer => {
-        layers[layer].forEach(rect => {
-            if (layer === 'textBoxes') {
-                ctx.font = `${rect.fontSize || selectedFontSize} ${rect.fontFamily || selectedFontFamily}`;
-                ctx.fillStyle = rect.fill || selectedColor;
-                if (rect.headline) {
-                    ctx.font = `bold ${Math.min(parseInt(rect.fontSize || selectedFontSize) * 1.5, 36)}px ${rect.fontFamily || selectedFontFamily}`;
-                    ctx.fillText(rect.headline.toUpperCase(), rect.x, rect.y + parseInt(rect.fontSize || selectedFontSize));
-                }
-                if (rect.bodyText) {
-                    ctx.font = `${rect.fontSize || selectedFontSize} ${rect.fontFamily || selectedFontFamily}`;
-                    wrapText(ctx, rect.bodyText, rect.x, rect.y + (rect.headline ? parseInt(rect.fontSize || selectedFontSize) * 2 : parseInt(selectedFontSize)), rect.width, parseInt(rect.fontSize || selectedFontSize) * 1.5);
-                }
-                ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-            } else if (rect.image && (layer === 'photoBoxes' || layer === 'imageBoxes')) {
-                ctx.drawImage(rect.image, rect.x, rect.y, rect.width, rect.height);
-                ctx.strokeStyle = rect.stroke || '#000';
-                ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-            } else {
-                ctx.fillStyle = rect.fill || selectedColor;
-                ctx.strokeStyle = rect.stroke || '#000';
-                ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-                ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-                if (layer === 'photoBoxes' || layer === 'imageBoxes') {
-                    ctx.fillStyle = '#fff';
-                    ctx.fillRect(rect.x + rect.width / 4, rect.y + rect.height / 4, rect.width / 2, rect.height / 2);
-                    ctx.beginPath();
-                    ctx.moveTo(rect.x + rect.width / 2, rect.y + rect.height / 4);
-                    ctx.lineTo(rect.x + rect.width / 3, rect.y + rect.height / 3);
-                    ctx.lineTo(rect.x + rect.width * 2 / 3, rect.y + rect.height / 3);
-                    ctx.closePath();
-                    ctx.fillStyle = '#000';
-                    ctx.fill();
-                }
-            }
-        });
-    });
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw background
+  ctx.fillStyle = sectionColors.background;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw bleed lines (red)
+  ctx.strokeStyle = '#ff0000';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.rect(0, 0, pageWidth * scaleFactor, pageHeight * scaleFactor);
+  ctx.rect(pageWidth * scaleFactor + gutter * scaleFactor, 0, pageWidth * scaleFactor, pageHeight * scaleFactor);
+  ctx.stroke();
+  
+  // Draw gutter lines
+  ctx.beginPath();
+  ctx.moveTo(pageWidth * scaleFactor, 0);
+  ctx.lineTo(pageWidth * scaleFactor, pageHeight * scaleFactor);
+  ctx.moveTo((pageWidth + gutter) * scaleFactor, 0);
+  ctx.lineTo((pageWidth + gutter) * scaleFactor, pageHeight * scaleFactor);
+  ctx.stroke();
+  
+  // Draw modules
+  ctx.fillStyle = sectionColors.modules;
+  ctx.strokeStyle = sectionColors.modules.slice(0, 7); // Remove transparency for stroke
+  ctx.lineWidth = 2;
+  modules.forEach(module => {
+    ctx.fillRect(module.x * scaleFactor, module.y * scaleFactor, module.width * scaleFactor, module.height * scaleFactor);
+    ctx.strokeRect(module.x * scaleFactor, module.y * scaleFactor, module.width * scaleFactor, module.height * scaleFactor);
+  });
+  
+  // Draw image boxes
+  ctx.strokeStyle = sectionColors.imageBoxes;
+  ctx.setLineDash([5, 5]);
+  ctx.lineWidth = 2;
+  imageBoxes.forEach(box => {
+    ctx.strokeRect(box.x * scaleFactor, box.y * scaleFactor, box.width * scaleFactor, box.height * scaleFactor);
+  });
+  ctx.setLineDash([]);
 }
 
-// Text wrapping function
-function wrapText(context, text, x, y, maxWidth, lineHeight) {
-    const words = text.split(' ');
-    let line = '';
-    for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
-        const metrics = context.measureText(testLine);
-        const testWidth = metrics.width;
-        if (testWidth > maxWidth && n > 0) {
-            context.fillText(line, x, y);
-            line = words[n] + ' ';
-            y += lineHeight;
-        } else {
-            line = testLine;
-        }
-    }
-    context.fillText(line, x, y);
-}
-
-// Create bullseye quadrants for Modules layer
-function createBullseyeQuadrants(x, y) {
-    const pageWidth = (canvas.width - 20) / 2;
-    const pageHeight = canvas.height;
-    const gutter = 20;
-    
-    const isLeftPage = x < pageWidth;
-    const pageX = isLeftPage ? 0 : pageWidth + gutter;
-    const relX = isLeftPage ? x : x - (pageWidth + gutter);
-    
-    const quadrants = [
-        { x: pageX, y: 0, width: relX, height: y, fill: selectedColor, stroke: '#000' },
-        { x: pageX + relX, y: 0, width: pageWidth - relX, height: y, fill: selectedColor, stroke: '#000' },
-        { x: pageX, y: y, width: relX, height: pageHeight - y, fill: selectedColor, stroke: '#000' },
-        { x: pageX + relX, y: y, width: pageWidth - relX, height: pageHeight - y, fill: selectedColor, stroke: '#000' }
-    ];
-    
-    quadrants.forEach(quad => {
-        if (quad.width > 0 && quad.height > 0) {
-            layers.modules.push(quad);
-        }
-    });
-}
-
-// Create equal vertical modules
-function createEqualModules(count) {
-    const pageWidth = (canvas.width - 20) / 2;
-    const pageHeight = canvas.height;
-    const margin = pageWidth * (1 / 8.5);
-    const gutter = 20;
-    const usableWidth = pageWidth - 2 * margin;
-
-    const isLeftPage = startX < pageWidth;
-    const pageX = isLeftPage ? 0 : pageWidth + gutter;
-
-    const moduleWidth = usableWidth / count;
-    layers.modules = layers.modules.filter(rect => !rect.isEqualModule); // Clear previous equal modules
-    for (let i = 0; i < count; i++) {
-        const module = {
-            x: pageX + margin + (i * moduleWidth),
-            y: margin,
-            width: moduleWidth,
-            height: pageHeight - 2 * margin,
-            fill: selectedColor,
-            stroke: '#000',
-            isEqualModule: true
-        };
-        layers.modules.push(module);
-    }
-}
-
-// Mouse events for dragging rectangles or creating bullseye
-canvas.addEventListener('mousedown', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    startX = e.clientX - rect.left;
-    startY = e.clientY - rect.top;
-    isDragging = true;
-    if (currentLayer !== 'modules') {
-        currentRect = {
-            x: startX,
-            y: startY,
-            width: 0,
-            height: 0,
-            fill: selectedColor,
-            stroke: '#000',
-            fontSize: selectedFontSize,
-            fontFamily: selectedFontFamily
-        };
-    }
-});
-
-canvas.addEventListener('mousemove', (e) => {
-    if (!isDragging || currentLayer === 'modules') return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    currentRect.width = x - startX;
-    currentRect.height = y - startY;
-    drawSpread();
-    if (currentLayer === 'textBoxes') {
-        ctx.font = `${selectedFontSize} ${selectedFontFamily}`;
-        ctx.fillStyle = currentRect.fill;
-        if (currentRect.headline) {
-            ctx.font = `bold ${Math.min(parseInt(selectedFontSize) * 1.5, 36)}px ${selectedFontFamily}`;
-            ctx.fillText(currentRect.headline.toUpperCase(), currentRect.x, currentRect.y + parseInt(selectedFontSize));
-        }
-        if (currentRect.bodyText) {
-            ctx.font = `${selectedFontSize} ${selectedFontFamily}`;
-            wrapText(ctx, currentRect.bodyText, currentRect.x, currentRect.y + (currentRect.headline ? parseInt(selectedFontSize) * 2 : parseInt(selectedFontSize)), currentRect.width, parseInt(selectedFontSize) * 1.5);
-        }
-        ctx.strokeRect(currentRect.x, currentRect.y, currentRect.width, currentRect.height);
-    } else if (currentRect.image && (currentLayer === 'photoBoxes' || currentLayer === 'imageBoxes')) {
-        ctx.drawImage(currentRect.image, currentRect.x, currentRect.y, currentRect.width, currentRect.height);
-        ctx.strokeStyle = currentRect.stroke;
-        ctx.strokeRect(currentRect.x, currentRect.y, currentRect.width, currentRect.height);
-    } else {
-        ctx.fillStyle = currentRect.fill;
-        ctx.strokeStyle = currentRect.stroke;
-        ctx.fillRect(currentRect.x, currentRect.y, currentRect.width, currentRect.height);
-        ctx.strokeRect(currentRect.x, currentRect.y, currentRect.width, currentRect.height);
-        if (currentLayer === 'photoBoxes' || currentLayer === 'imageBoxes') {
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(currentRect.x + currentRect.width / 4, currentRect.y + currentRect.height / 4, currentRect.width / 2, currentRect.height / 2);
-            ctx.beginPath();
-            ctx.moveTo(currentRect.x + currentRect.width / 2, currentRect.y + currentRect.height / 4);
-            ctx.lineTo(currentRect.x + currentRect.width / 3, currentRect.y + currentRect.height / 3);
-            ctx.lineTo(currentRect.x + rect.width * 2 / 3, currentRect.y + rect.height / 3);
-            ctx.closePath();
-            ctx.fillStyle = '#000';
-            ctx.fill();
-        }
-    }
-});
-
-canvas.addEventListener('mouseup', (e) => {
-    if (!isDragging) return;
-    isDragging = false;
-    const rect = canvas.getBoundingClientRect();
-    const endX = e.clientX - rect.left;
-    const endY = e.clientY - rect.top;
-    
-    if (currentLayer === 'modules') {
-        if (Math.abs(endX - startX) < 5 && Math.abs(endY - startY) < 5) {
-            createBullseyeQuadrants(startX, startY);
-        } else {
-            currentRect = {
-                x: startX,
-                y: startY,
-                width: endX - startX,
-                height: endY - startY,
-                fill: selectedColor,
-                stroke: '#000'
-            };
-            if (currentRect.width !== 0 && currentRect.height !== 0) {
-                layers.modules.push(currentRect);
-            }
-        }
-    } else if (currentRect && currentRect.width !== 0 && currentRect.height !== 0) {
-        layers[currentLayer].push(currentRect);
-    }
-    drawSpread();
-});
-
-// Export as PDF
-exportPDF.addEventListener('click', () => {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({
-        orientation: 'landscape',
-        unit: 'px',
-        format: [canvas.width, canvas.height]
-    });
-    const imgData = canvas.toDataURL('image/png');
-    doc.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-    doc.save('layout.pdf');
-});
-
-// Export as SVG
-exportSVG.addEventListener('click', () => {
-    const svgData = `
-        <svg width="${canvas.width}" height="${canvas.height}" xmlns="http://www.w3.org/2000/svg">
-            <foreignObject width="100%" height="100%">
-                <div xmlns="http://www.w3.org/1999/xhtml">
-                    <img src="${canvas.toDataURL('image/png')}" width="${canvas.width}" height="${canvas.height}"/>
-                </div>
-            </foreignObject>
-        </svg>`;
-    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'layout.svg';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-});
-
-// Initialize toolbar
-updateToolbar();
+// Initialize
+updateSwatches();
 drawSpread();
+
+// Handle section selection
+sectionSelect.addEventListener('change', () => {
+  selectedSection = sectionSelect.value;
+  drawSpread();
+});
+
+// Handle color input
+colorInput.addEventListener('input', () => {
+  const input = colorInput.value.trim();
+  if (input) {
+    const colorArray = input.split(',').map(c => c.trim());
+    if (colorArray.length === 5 && colorArray.every(c => /^[0-9A-Fa-f]{6}$/.test(c))) {
+      colors = colorArray.map(c => `#${c}`);
+      updateSwatches();
+    }
+  }
+});
+
+// Handle randomize button
+randomizeButton.addEventListener('click', () => {
+  const getRandomHexColor = () => {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+      color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+  };
+  colors = [getRandomHexColor(), getRandomHexColor(), getRandomHexColor(), getRandomHexColor(), getRandomHexColor()];
+  colorInput.value = colors.map(c => c.slice(1)).join(',');
+  sectionColors.modules = '#0000ff33'; // Reset to default
+  sectionColors.imageBoxes = '#00ff00';
+  updateSwatches();
+  drawSpread();
+});
+
+// Handle canvas clicks
+canvas.addEventListener('mousedown', e => {
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / scaleFactor;
+  const y = (e.clientY - rect.top) / scaleFactor;
+  
+  const elements = selectedLayer === 'modules' ? modules : imageBoxes;
+  draggedElement = elements.find(el => 
+    x >= el.x && x <= el.x + el.width && 
+    y >= el.y && y <= el.y + el.height
+  );
+  
+  if (draggedElement) {
+    isDragging = true;
+    startX = x - draggedElement.x;
+    startY = y - draggedElement.y;
+    selectedSection = selectedLayer;
+    sectionSelect.value = selectedLayer;
+  } else {
+    draggedElement = { x, y, width: 0, height: 0 };
+    isDragging = true;
+    startX = x;
+    startY = y;
+    if (selectedLayer === 'modules') {
+      modules.push(draggedElement);
+      selectedSection = 'modules';
+      sectionSelect.value = 'modules';
+    } else {
+      imageBoxes.push(draggedElement);
+      selectedSection = 'imageBoxes';
+      sectionSelect.value = 'imageBoxes';
+    }
+  }
+  drawSpread();
+});
+
+// Handle mouse move
+canvas.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / scaleFactor;
+  const y = (e.clientY - rect.top) / scaleFactor;
+  
+  if (draggedElement.width === 0 && draggedElement.height === 0) {
+    draggedElement.width = x - draggedElement.x;
+    draggedElement.height = y - draggedElement.y;
+  } else {
+    draggedElement.x = x - startX;
+    draggedElement.y = y - startY;
+  }
+  
+  drawSpread();
+});
+
+// Handle mouse up
+canvas.addEventListener('mouseup', () => {
+  isDragging = false;
+  draggedElement = null;
+  drawSpread();
+});
+
+// Add new element
+addElementButton.addEventListener('click', () => {
+  const newElement = {
+    x: bleed,
+    y: bleed,
+    width: 100,
+    height: 100
+  };
+  if (selectedLayer === 'modules') {
+    modules.push(newElement);
+  } else {
+    imageBoxes.push(newElement);
+  }
+  drawSpread();
+});
+
+// Export to PDF
+exportPdfButton.addEventListener('click', () => {
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'in',
+    format: [spreadWidthInches, pageHeightInches]
+  });
+  
+  // Draw background
+  const bgColor = sectionColors.background.match(/[0-9A-Fa-f]{2}/g).map(hex => parseInt(hex, 16));
+  doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+  doc.rect(0, 0, spreadWidthInches, pageHeightInches, 'F');
+  
+  // Draw bleed lines
+  doc.setDrawColor(255, 0, 0);
+  doc.setLineWidth(0.01);
+  doc.rect(0, 0, pageWidthInches, pageHeightInches);
+  doc.rect(pageWidthInches + gutterInches, 0, pageWidthInches, pageHeightInches);
+  
+  // Draw gutter lines
+  doc.line(pageWidthInches, 0, pageWidthInches, pageHeightInches);
+  doc.line(pageWidthInches + gutterInches, 0, pageWidthInches + gutterInches, pageHeightInches);
+  
+  // Draw modules
+  const moduleColor = sectionColors.modules.slice(0, 7).match(/[0-9A-Fa-f]{2}/g).map(hex => parseInt(hex, 16));
+  doc.setFillColor(moduleColor[0], moduleColor[1], moduleColor[2], 0.3);
+  doc.setDrawColor(moduleColor[0], moduleColor[1], moduleColor[2]);
+  modules.forEach(module => {
+    doc.rect(module.x / dpi, module.y / dpi, module.width / dpi, module.height / dpi, 'FD');
+  });
+  
+  // Draw image boxes
+  const imageBoxColor = sectionColors.imageBoxes.match(/[0-9A-Fa-f]{2}/g).map(hex => parseInt(hex, 16));
+  doc.setDrawColor(imageBoxColor[0], imageBoxColor[1], imageBoxColor[2]);
+  doc.setLineDash([0.05, 0.05]);
+  imageBoxes.forEach(box => {
+    doc.rect(box.x / dpi, box.y / dpi, box.width / dpi, box.height / dpi, 'D');
+  });
+  doc.setLineDash([]);
+  
+  doc.save('yearbook-spread.pdf');
+});

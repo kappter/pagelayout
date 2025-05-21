@@ -13,9 +13,7 @@ const neutralSwatchContainer = document.getElementById('neutralSwatch');
 let colors = ['#8A7B96', '#7B968A', '#968A7B', '#627C70', '#ADA397'];
 const neutralColors = ['#000000', '#FFFFFF', '#333333', '#666666', '#CCCCCC'];
 let sectionColors = {
-  background: '#ffffff',
-  modules: '#0000ff33',
-  imageBoxes: '#00ff00'
+  background: '#ffffff'
 };
 
 // Page dimensions
@@ -37,7 +35,7 @@ canvas.width = spreadWidth * scale;
 canvas.height = pageHeight * scale;
 const scaleFactor = canvas.width / spreadWidth;
 
-// Layers
+// Layers with individual colors
 let modules = [];
 let imageBoxes = [];
 let selectedLayer = 'modules';
@@ -68,28 +66,16 @@ function updateSwatches() {
 
   document.querySelectorAll('.swatch, .neutral-swatch').forEach(swatch => {
     swatch.addEventListener('mouseover', () => {
-      if (selectedSection) {
+      if (selectedSection && draggedElement) {
         const color = swatch.dataset.color;
-        if (selectedSection === 'background') {
-          sectionColors.background = color;
-        } else if (selectedSection === 'modules') {
-          sectionColors.modules = color + '33';
-        } else if (selectedSection === 'imageBoxes') {
-          sectionColors.imageBoxes = color;
-        }
+        draggedElement.color = color;
         drawSpread();
       }
     });
     swatch.addEventListener('click', () => {
-      if (selectedSection) {
+      if (selectedSection && draggedElement) {
         const color = swatch.dataset.color;
-        if (selectedSection === 'background') {
-          sectionColors.background = color;
-        } else if (selectedSection === 'modules') {
-          sectionColors.modules = color + '33';
-        } else if (selectedSection === 'imageBoxes') {
-          sectionColors.imageBoxes = color;
-        }
+        draggedElement.color = color;
         sectionSelect.value = '';
         selectedSection = null;
         drawSpread();
@@ -119,21 +105,23 @@ function drawSpread() {
   ctx.lineTo((pageWidth + gutter) * scaleFactor, pageHeight * scaleFactor);
   ctx.stroke();
   
-  ctx.fillStyle = sectionColors.modules;
-  ctx.strokeStyle = sectionColors.modules.slice(0, 7);
-  ctx.lineWidth = 2;
+  // Draw modules
   modules.forEach(module => {
+    ctx.fillStyle = module.color ? module.color + '33' : '#0000ff33'; // Semi-transparent default
+    ctx.strokeStyle = module.color ? module.color : '#0000ff';
+    ctx.lineWidth = 2;
     ctx.fillRect(module.x * scaleFactor, module.y * scaleFactor, module.width * scaleFactor, module.height * scaleFactor);
     ctx.strokeRect(module.x * scaleFactor, module.y * scaleFactor, module.width * scaleFactor, module.height * scaleFactor);
   });
   
-  ctx.strokeStyle = sectionColors.imageBoxes;
-  ctx.setLineDash([5, 5]);
-  ctx.lineWidth = 2;
+  // Draw image boxes
   imageBoxes.forEach(box => {
+    ctx.strokeStyle = box.color ? box.color : '#00ff00';
+    ctx.setLineDash([5, 5]);
+    ctx.lineWidth = 2;
     ctx.strokeRect(box.x * scaleFactor, box.y * scaleFactor, box.width * scaleFactor, box.height * scaleFactor);
+    ctx.setLineDash([]);
   });
-  ctx.setLineDash([]);
 }
 
 // Initialize
@@ -171,8 +159,6 @@ randomizeButton.addEventListener('click', () => {
   };
   colors = [getRandomHexColor(), getRandomHexColor(), getRandomHexColor(), getRandomHexColor(), getRandomHexColor()];
   colorInput.value = colors.map(c => c.slice(1)).join(',');
-  sectionColors.modules = '#0000ff33';
-  sectionColors.imageBoxes = '#00ff00';
   updateSwatches();
   drawSpread();
 });
@@ -196,7 +182,7 @@ canvas.addEventListener('mousedown', e => {
     selectedSection = selectedLayer;
     sectionSelect.value = selectedLayer;
   } else {
-    draggedElement = { x, y, width: 50, height: 50 }; // Minimum size
+    draggedElement = { x, y, width: 0, height: 0, color: null };
     isDragging = true;
     startX = x;
     startY = y;
@@ -215,18 +201,16 @@ canvas.addEventListener('mousedown', e => {
 
 // Handle mouse move
 canvas.addEventListener('mousemove', e => {
-  if (!isDragging) return;
+  if (!isDragging || !draggedElement) return;
   
   const rect = canvas.getBoundingClientRect();
   const x = (e.clientX - rect.left) / scaleFactor;
   const y = (e.clientY - rect.top) / scaleFactor;
   
-  if (draggedElement.width === 50 && draggedElement.height === 50) {
-    // Resize new element with minimum size
-    draggedElement.width = Math.max(50, x - draggedElement.x);
-    draggedElement.height = Math.max(50, y - draggedElement.y);
+  if (draggedElement.width === 0 && draggedElement.height === 0) {
+    draggedElement.width = x - draggedElement.x;
+    draggedElement.height = y - draggedElement.y;
   } else {
-    // Move existing element
     draggedElement.x = x - startX;
     draggedElement.y = y - startY;
   }
@@ -237,9 +221,15 @@ canvas.addEventListener('mousemove', e => {
 // Handle mouse up
 canvas.addEventListener('mouseup', () => {
   if (draggedElement) {
-    // Ensure minimum size
-    draggedElement.width = Math.max(50, draggedElement.width);
-    draggedElement.height = Math.max(50, draggedElement.height);
+    // Ensure non-negative dimensions
+    draggedElement.width = Math.max(0, draggedElement.width);
+    draggedElement.height = Math.max(0, draggedElement.height);
+    if (draggedElement.width === 0 || draggedElement.height === 0) {
+      // Remove if too small (e.g., accidental click)
+      const elements = selectedLayer === 'modules' ? modules : imageBoxes;
+      const index = elements.indexOf(draggedElement);
+      if (index > -1) elements.splice(index, 1);
+    }
   }
   isDragging = false;
   draggedElement = null;
@@ -252,7 +242,8 @@ addElementButton.addEventListener('click', () => {
     x: bleed,
     y: bleed,
     width: 100,
-    height: 100
+    height: 100,
+    color: null
   };
   if (selectedLayer === 'modules') {
     modules.push(newElement);
@@ -282,20 +273,20 @@ exportPdfButton.addEventListener('click', () => {
   doc.line(pageWidthInches, 0, pageWidthInches, pageHeightInches);
   doc.line(pageWidthInches + gutterInches, 0, pageWidthInches + gutterInches, pageHeightInches);
   
-  const moduleColor = sectionColors.modules.slice(0, 7).match(/[0-9A-Fa-f]{2}/g).map(hex => parseInt(hex, 16));
-  doc.setFillColor(moduleColor[0], moduleColor[1], moduleColor[2], 0.3);
-  doc.setDrawColor(moduleColor[0], moduleColor[1], moduleColor[2]);
   modules.forEach(module => {
+    const moduleColor = module.color ? module.color.match(/[0-9A-Fa-f]{2}/g).map(hex => parseInt(hex, 16)) : [0, 0, 255];
+    doc.setFillColor(moduleColor[0], moduleColor[1], moduleColor[2], 0.3);
+    doc.setDrawColor(moduleColor[0], moduleColor[1], moduleColor[2]);
     doc.rect(module.x / dpi, module.y / dpi, module.width / dpi, module.height / dpi, 'FD');
   });
   
-  const imageBoxColor = sectionColors.imageBoxes.match(/[0-9A-Fa-f]{2}/g).map(hex => parseInt(hex, 16));
-  doc.setDrawColor(imageBoxColor[0], imageBoxColor[1], imageBoxColor[2]);
-  doc.setLineDash([0.05, 0.05]);
   imageBoxes.forEach(box => {
+    const boxColor = box.color ? box.color.match(/[0-9A-Fa-f]{2}/g).map(hex => parseInt(hex, 16)) : [0, 255, 0];
+    doc.setDrawColor(boxColor[0], boxColor[1], boxColor[2]);
+    doc.setLineDash([0.05, 0.05]);
     doc.rect(box.x / dpi, box.y / dpi, box.width / dpi, box.height / dpi, 'D');
+    doc.setLineDash([]);
   });
-  doc.setLineDash([]);
   
   doc.save('yearbook-spread.pdf');
 });
